@@ -1,6 +1,6 @@
 # 看書(linux shell，臥龍小三 著)的筆記
 
-## 第一章
+## 第一章 sehll 簡介
 - 檔名不一定要 .sh，只是方便知道是 sh (檔案 hello，就沒有.sh，一樣可以執行) 
 - sh 第一行建議要 #!/bin/bash
 (若沒寫，當下系統會「好心」用預設的 Shell 來幫你讀取並執行它)
@@ -54,11 +54,291 @@ chmod +x getfile.sh && ./getfile.sh
 - Debian Linux 建立中文化環境 (1-3-gcin.sh)
 要切換 root 執行
 ```
-# 保留原來的位置
-su -
+# 保留在使用者原來的位置
+sudo su
 # 直接切換成 root 位置
 sudo -i
 ```
+
+## 第二章 部署 sehll 
+- 查看預設 shell
+```
+echo $SHELL
+
+# 會發現 sh 連結到 bash 或 dash 
+ls -la /bin/sh
+```
+- 使用者登入時，使用哪個 sh
+```
+cat /etc/passwd
+
+# 第七欄 :/bin/bash 可以改成 /bin/nologin
+sudo usermod -s /bin/nologin 使用者名稱
+```
+
+- 安裝修正檔，步驟如下
+patch→設定→編譯→測試→安裝
+```
+# patch套用修正檔，看有幾個就要執行幾個
+patch -p0 < ../bash44-001
+patch -p0 < ../bash44-002
+
+# 設定，預設安裝在 /usr/local
+./configure
+
+# 編譯，根據相依關係，自動判斷哪些檔案需要重新編譯或更新，並執行對應的指令
+make
+
+# 測試，確認無誤
+make tests
+
+# 安裝，root 安裝
+sudo -
+make install
+```
+- FreeBSD 預設是 tcsh
+OpenBSD 預設是 ksh
+Windows 可以使用 Cygwin、MSYS2 安裝 bash
+
+## 第三章 基礎概念 
+- 登入有兩種，主機登入、遠端登入
+- **主機登入**是直接在電腦前面登入
+ctrl + alt + F1~F7 (預設七個終端機)
+- **遠端登入**
+```
+ssh 帳號@主機名稱或 IP
+
+# 若沒有帳號，預設是用目前的帳號
+```
+- 登出，輸入 exit，或是 ctrl + d
+- 檔案種類
+```
+- ，一般檔案，文字檔、二進位檔、執行檔
+b ，設備檔，區塊檔，系統與硬體之間的溝通介面
+d ，目錄
+l ，連結檔，檔案捷徑的概念。
+p ，pipe 管線檔，一個行程將資料寫入 pipe，再由另一個行程讀取。
+s ，socket檔，和遠端主機通訊的管道。
+
+```
+- 兩種方式看檔案類型
+```
+ls -la /etc/passwd
+# 最左邊的字元，就是檔案類型
+# -rwx 或 drwx
+
+file /etc/passwd
+# 顯示 ASCII text
+```
+- 檔案路徑 有兩種，絕對路徑、相對路徑。
+**絕對路徑**最前面一定有 /，例如 /etc。
+**相對路徑**，若寫 etc/，表示在這目錄中的 etc/目錄。
+```
+# 查看目前路徑
+pwd
+
+# 切換到家目錄
+cd ~
+
+# 回到上一層
+cd ..
+```
+- 檔案權限，三種身分，四種權限
+
+| 三種身分 | 四種權限 | 
+| ------- | ------- | 
+| u，自己 |r，讀取，代表數字 4 | 
+| g，群組 |w，寫入，代表數字 2| 
+| o，other其他人 |x，執行 與 進入，代表數字 1| 
+| a，all 所有人 |s 特殊權限 | 
+
+- 使用情況
+```
+# 目錄要讓他人進去就要加上
+chmod o+x /hello/
+
+# 全部人都可以執行，危險
+chmod +x test.sh
+
+# 應該限定自己可以執行
+chmod u+x teet.sh
+```
+
+- 特殊權限看第一個數字，後面三個數字分別就是 u、g、o
+
+|  數字 | 權限表示  |
+| --- | --- |
+| 0755 | 0，沒有特殊權限 | 
+| 4755 | 4，表示可以代表檔案擁有者 | 
+| 2755 | 2，表示可以代表檔案擁有群組 |
+| 1755 |  1，只有自己可以刪除這個檔案 | 
+
+- 特殊字元
+
+```
+*，表示任意的字元，可以是空字串。
+
+ls -la /usr/bin/*
+# 會列出所有檔案
+
+ls -la /tmp/*.zip
+# 列出所有.zip 檔
+
+
+?，代表一個字元，不可是空的。
+
+ls -la /usr/bin/????
+# 會列出檔名長度為 4 的檔案
+
+\，跳脫字元 
+
+echo This is Jack\'s book.
+# 就等於下面的
+echo "This is Jack's book."
+
+\，接續符號，有時程式碼太長想要換行就在最後輸入 \
+echo " This is \
+        Jack's book."
+```
+
+- IFS，分隔字元變數。預設是\n、空白、tab字元(3-1-ifs.sh)
+```
+#!/bin/bash
+# IFS 改成 \n，遇到空白、tab 就不換行(有些檔案名有空白)
+
+IFS=$'\n'
+for f in $(ls)
+do
+    echo $f
+done
+```
+
+- 字元集合
+
+| 字元 | 意思 | 
+| -------- | -------- | 
+| [a-z]     | 英文字母小寫     | 
+| [A-Z]     | 英文字母大寫     | 
+| [a-zA-Z]     | 英文字母大寫、小寫     | 
+| [0-9]     | 數字     | 
+| [a-zA-Z0-9]     | 英文數字     | 
+| e[rsx]     | 是er 或 es 或 ex     | 
+| [!a-z]     | 不是小寫     | 
+
+- 括號擴展
+```
+# 會建立 a、b、c 目錄，裡面又各建立 d、e、f 目錄
+mkdir -p /tmp/{,b,c}/{d,e,f}
+
+# bash 4.0 開始才有遞增遞減
+echo {1..11..3}
+# 印出 1 4 7 10，每個+3
+
+echo {100..80..5}
+# 100 95 90 85 80
+```
+- 序列擴展
+```
+echo {1..4}
+# 1 2 3 4
+
+echo {a..d}
+# a b c d
+```
+- 系統預設開啟的檔案
+
+
+| 檔案 | 代碼 | 
+| -------- | -------- | 
+| 標準輸入，stdin     | 0     | 
+| 標準輸出，stdout     | 1     | 
+| 標準錯誤，stderr     | 2     | 
+
+- 轉向輸出 >，轉向輸入 <
+```
+sort < unsort.txt > sorted.txt
+# 會將 unsort.txt 的資料先給 sort，之後再輸出給 sorted.txt
+
+# 也可以
+cat unsort.txt | sort > sorted.txt
+```
+
+- 管線
+```
+grep '".*" 4[0-9][0-9]' access.log \
+# 作用：從 access.log 檔案中篩選出包含雙引號內的內容，且後面接著 4 開頭的三位數錯誤碼（即 400 到 499）的日誌行。
+
+| grep -o '".*" 4[0-9][0-9]' \
+# 透過 -o（only-matching）參數，只抓出符合條件的那一段文字（也就是雙引號包住的請求內容加上後面的 4xx 狀態碼），把整行日誌中多餘的 IP、時間、User-Agent 等雜訊過濾掉。
+
+| sort \
+# 將剛才抓出來的文字進行排序。
+
+| uniq -c  \
+# 將相鄰的重複項目合併，並在每一行前方加上出現的次數（Count）。
+
+| sort -n \
+# 讓出現次數最少的排在最上面、最多的排在最下面
+
+| tee allog.txt
+# 將最終整理好的結果同時輸出到螢幕上，並儲存一份到 allog.txt 檔案中。
+```
+
+- 建立 ssh_keyfile，手動用 sshkey 登入伺服器
+主機產生ssh_keyfile(公鑰、私鑰)。
+私鑰留在自己的主機內 /home/user/.ssh/id_rsa
+公鑰是 /home/user/.ssh/id_rsa.pub
+公鑰 可以傳到任何伺服器 /home/user/.ssh/authorized_keys
+```
+#!/bin/bash
+HOST=192.168.168.168
+
+# 建立公私鑰
+ssh-keygen -b 4096
+
+# 在伺服器建立 ~/.ssh 目錄，需要輸入密碼
+ssh $HOST mkdir -p '~/.ssh'
+
+# 用登入密碼來建立 authorized_keys
+cat ~/.ssh/id_rsa.pub | ssh $HOST "cat >> .ssh/authorized_keys"
+
+# 修改權限
+ssh $HOST chmod 700 '~/.ssh'
+ssh $HOST chmod 600 '~/.ssh/*'
+```
+
+- ssh-copy-id，自動 sshkey 登入伺服器
+```
+#!/bin/bash
+HOST=192.168.168.168
+ssh-keygen -b 4096
+ssh-copy-id $HOST
+# 這時需要輸入登入密碼。
+# ssh-copy-id 是屬於openssh-client 套件。
+```
+
+- gpg 加密、解密
+```
+# 加密，此時會產生檔名.gpg
+echo 密碼 | gpg --batch --yes --passphrase-fd 0 --cipher-algo AES256 -c 哪個檔案
+
+# 解密
+echo 密碼 | gpg --batch --yes --passphrase-fd 0 -o "新的檔案" -d "加密檔案"
+
+#簡單解密，直接問密碼
+gpg -d secret.txt.gpg > secret.txt
+```
+- 背景執行，在執行程式後面加個 &
+通常我都會另外開一個 terminal
+```
+./my-work.sh &
+
+# 看哪些程式在背景執行
+jobs
+
+# 輸入 fg %1 可以把編號 1 的背景程式拉回前景繼續互動
+```
+
 
 
 
@@ -72,5 +352,8 @@ sudo -i
 - ex
 ```
 #!/bin/bash
-
 ```
+
+| Column  | Column  | 
+| -------- | -------- | 
+| Text     | Text     | 
