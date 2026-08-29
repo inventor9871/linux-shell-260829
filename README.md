@@ -340,8 +340,228 @@ jobs
 ```
 
 
+## 第四章，shell 組成
 
+- 簡單範例
+```
+#!/bin/bash
+function showName(){
+  echo "今天是$1, $2大大來自於$3"
+}
 
+name="$1"
+ip='192.168.0.1'
+today=$(date +%F)
+
+# 這編寫 !=1，會噴錯，!= 兩邊都要有空格
+if [ $# != 1 ]; then
+ echo "Usage: ./$0 {使用者名稱}"
+ exit
+fi
+
+showName $today $name $ip
+sleep 5
+echo
+echo 'by'
+```
+- 執行方法
+```
+# 只有 ./test.sh 需要先改權限
+chmod u+x test.sh
+chmod 700 test.sh
+
+# 其他都可以執行
+. test.sh
+bash test.sh
+source test.sh
+```
+
+- 檢查語法
+```
+bash -v test.sh
+bash -x test.sh
+```
+- login shell 與 執行 shell
+當我們登入的時候就已經是個 shell(login)，而執行的 shell 又是另外開啟一個
+```
+#!/bin/bash
+cd 'a dir'
+touch hi.txt
+```
+./test.sh，是 執行shell，不會到 'a dir'目錄。
+. test.sh、source test.sh，是叫 login shell 執行，執行完後就去 'a dir'。
+
+- 查看在哪一個 shell
+```
+echo $SHLVL
+# shell level
+
+# 可以在呼叫一個 bash
+bash
+echo $SHLVL
+
+# 退出 bash
+exit
+
+# 觀察記憶體中的行程
+ps axf
+```
+- 登入、登出 的執行檔
+登入→ /etc/profile (全部人通用的，會被使用者的覆蓋)
+ →使用者的 ~/.bash_profile → ~/.bash_login → ~/.profile
+關鍵規則：只要在前一個檔案被找到了，Bash 讀完之後就會「停下來」，不會繼續往下讀後面的檔案。
+
+登出→ ~/.bash_logout，非高手請勿亂改。
+
+- 執行新的 shell，會去讀取 /etc/bash.bashrc 及 ~/.bashrc
+
+- 變數，等號兩邊不能有空格
+```
+# 簡單設定
+myname='OL'
+
+# 變數=$(執行程式)
+Dday=$(date '+%Y%m%d')
+
+# 取得變數，若左右還有字元，用 {} 隔開
+echo $myname
+echo 我愛${myname}很多
+```
+- 設定環境變數，但只要關閉這個shell，環境變數就沒了
+```
+export testVar="hello world"
+echo $testVar
+```
+- 陣列，不用事先定義
+```
+a[0]=0
+a[1]=1
+
+# 顯示一定要加大括號
+echo ${a[0]}
+
+#顯示全部
+files=(*)
+echo ${files[*]}
+```
+- 標準輸入 0 /輸出 1 /錯誤 2
+ \> 後面接檔名，而 >& 是接標準輸出
+```
+# 假設沒有 z 開頭的檔案，ls z* 畫面就會顯示找不到(就是錯誤)
+ls z*
+
+# 將錯誤導向檔案
+ls z* 2> err.log
+
+# > 後面接檔名，而 >& 是接標準輸出
+ls z* > /dev/null
+# 正確就去 /dev/null，但因為錯誤，所以還是會顯示
+
+ls z* > /dev/null 2>&1
+# 這樣就不會顯示錯誤
+```
+
+- 取出第幾欄位的資料，cut -d' '，(用空格來分欄位)
+```
+date | cut -d' ' -f3
+# 取出第三欄位的資料
+
+tail /etc/passwd | cut -d':' -f7
+#取出第七欄位，登入的shell
+```
+- 命令列的參數
+
+| 參數  | 代表值  | 
+| -------- | -------- | 
+| $0     | 執行檔名     |
+| \$1~$n     | 後面的參數     |
+| $#    | 參數的總數     |
+| $?    | 會記錄上次執行結果，0代表成功  |
+
+- 判斷真假，中括號要有空格
+```
+[ 3 -gt 2 ] 
+# 回傳 0，表示 true
+
+[ -f /etc/passwd ]
+# 回傳 0，表示 true
+```
+- 條件判斷，兩種寫法
+```
+# then 沒有接在 if 後面
+
+if 命令為真
+then
+    做動作
+fi
+```
+```
+# then 接在 if 後面，要用分號 ;
+
+if 命令為真; then
+    做動作
+fi
+
+# 如果沒有 xx.zip，就去下載
+if [ ! -f xx.zip ]; then
+    wget https://ooo/xx.zip
+fi
+```
+- for 迴圈
+```
+for 變數名自己取 in 範圍
+do
+    做動作
+done
+-----------------------
+
+for char1 in A B C D
+do
+    echo "$char1"
+done
+```
+找出所有的檔案
+```
+#!/bin/bash
+shopt -s nullglob dotglob
+# shopt shell 的 option選項
+# -s 打開(set)，-u 關閉(unset)
+# nullglob，如果找不到任何檔案，它會直接展開成「空字串（什麼都沒有）」。
+# dotglob，能抓隱藏檔
+# 這在寫腳本防呆時非常重要！
+
+files=(*)
+for f in ${files[@]}; 
+do
+    echo $f
+done
+```
+- while 迴圈
+```
+while 條件
+do
+    做動作
+done
+
+----------------------
+
+#!/bin/bash
+# IFS設定為無，可以順利取得含有空白的檔名
+IFS=
+
+while read -r line; do
+  echo "$line"
+done < <(ls ./*)
+# <(程式碼) 將結果轉向輸入
+```
+- 升級 wordpress(4-5-upgrade-wp.sh)
+刪除兩個舊目錄，wp-admin、wp-includes
+貼上三個新目錄，wp-admin、wp-includes、wp-content
+貼上所有的php
+
+- 升級 WP 模組(4-6-upgrade-wp-plugins.sh)
+刪除舊的模組，wp-content/plugins/old模組
+貼上新的模組，wp-content/plugins/new模組
 
 
 
@@ -353,6 +573,7 @@ jobs
 ```
 #!/bin/bash
 ```
+
 
 | Column  | Column  | 
 | -------- | -------- | 
