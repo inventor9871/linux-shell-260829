@@ -1,4 +1,4 @@
-# 看書(linux shell，臥龍小三 著)的筆記
+# 看書(linux shell，臥龍小三 著)在筆電 ubuntu實作的筆記
 
 ## 第一章 sehll 簡介
 - 檔名不一定要 .sh，只是方便知道是 sh (檔案 hello，就沒有.sh，一樣可以執行) 
@@ -475,8 +475,11 @@ tail /etc/passwd | cut -d':' -f7
 | -------- | -------- | 
 | $0     | 執行檔名     |
 | \$1~$n     | 後面的參數     |
+| @     | 分別用空格顯示個別參數     |
+| *     | 將所有參數變成一個字串     |
 | $#    | 參數的總數     |
 | $?    | 會記錄上次執行結果，0代表成功  |
+| javascript    | 0代表 false  |
 
 - 判斷真假，中括號要有空格
 ```
@@ -563,11 +566,405 @@ done < <(ls ./*)
 刪除舊的模組，wp-content/plugins/old模組
 貼上新的模組，wp-content/plugins/new模組
 
+## 第五章 基本操作
+- bash 有 內建、命令列 兩種，可以用 type 看出，例如 
+```
+type echo 
+# 顯示 echo is a shell builtin 內建 
+
+type mkdir
+# mkdir is /usr/bin/mkdir，為命令列
+```
+- printf，可以讓文字或數字靠左、右對齊 n 個
+```
+printf "%5s\n" 30
+#   30，共有5s(五格靠右)，-5s(五格靠左)
+```
+顯示目前的 epoch 秒數(從1970/01/01起算)
+```
+printf '%(%s)T\n'
+# 不包括毫秒
+
+# 列印毫秒
+echo $EPOCHREALTIME
+```
+- hexdump 轉成十六進位
+```
+printf WhoIsOLS3 | hexdump -v -e '/1 "%02X"'
+# /1，代表每次讀取並處理 1 個位組
+# "%02X"，這是 C 語言風格的 printf 格式化語法。X：以大寫十六進位，02：不足兩位數時自動補前導零。
+# 印出 57686F49734F4C5333
+
+#轉換回來
+echo 57686F49734F4C5333 | xxd -r -p
+```
+- alias 設定新的別名
+```
+# alias 新別名='組合的命令'
+alias cp='cp -f'
+
+# 也可以建立別名函式
+mycmd() { curl -s -v https://www.google.com; }
+alias google=mycmd
+
+# alias、export、函式 都只存在這個 bash 中
+```
+- umask，可以看目前的遮罩值
+```
+# 去 /etc/profile、/etc/login.defs 新增修改 umask 都不行。
+# Gemini：/etc/login.defs 修改 USERGROUPS_ENAB no，但這樣會導致 網卡出問題，所以算了。
+```
+- set，可以看 shell 屬性的開關狀態
+```
+set -o
+# 看到 vi 是 off，但還是可以 vi 寫檔案，所以...
+
+# 開啟 emacs
+set -o emacs
+
+# 關閉 emacs
+set +o emacs
+
+# 在 sh 中，若有加 set -e ，表示使用 管線 | 收到錯誤訊息時，會自動關閉 sh，這樣比較好
+#!/bin/bash
+set -e
+echo test1 | grep -e 'ttt'; echo $? | echo test2
+echo final
+
+# 中間 grep ttt 時會出錯，所以整個程式碼停止。
+```
+- shopt ( sh option)設定 sh 行為
+```
+# 看看 shopt 有哪些選項，沒有 nounset
+shopt
+
+# 怪怪的，有些沒有顯示，原來是 -o 可以搭配 set，有 nounset ( 所有的變數都要先設定初始值 )
+shopt -o
+
+# 之後在 sh 裡面可以開啟 -s，關閉 -u
+shopt -s -o nounset
+
+# dotglob(會找隱藏檔)，nullglob(找不到檔案會用空字串代替)
+shopt -s nullglob dotglob
+
+```
+- time，有三個時間，real、user、sys
+```
+time mysh.sh
+
+# real，從程式開始執行到結束
+
+# user，程式中的純運算程式碼在 CPU 核心上執行所花費的時間（只計算使用者空間的程式碼）。
+
+# sys，程式發出系統呼叫（System Call），去讀寫檔案、開啟網路連線、記憶體配置等，這段由核心代勞的時間就會算在 sys 裡。
+```
+- read，可以讓使用者輸入資訊
+```
+#!/bin/bash
+echo "請輸入您的姓名"
+read username
+echo "您的名字是 ${username}"
+
+read -a arr <  <(echo 10 20 40)
+# echo ${arr[@]}
+
+# 還可以限定時間 
+read -t 10 username
+if [ $? > 128 ]; then
+  echo '您沒有在時間內輸入資料'
+fi
+# 超過時間，會回傳大於 128 的錯誤代碼
+
+# 搭配 IFS=":"，分隔符號是冒號
+IFS=":"
+read f1 f2 f3 f4 f5 f6 f7 < /etc/passwd
+# 就可以獲得七個變數，只會讀取第一行
+```
+- which，可以找到命令列
+```
+which lsof
+
+# 想要找變數，要去 set
+user=abc
+set | grep user 
+```
+- locate，檔名資料庫找尋
+```
+locate lsof
+
+# 會定期更新資料庫，也可以手動
+sudo updatedb
+```
+- date
+```
+# 調整時間 MMDDhhmmYY，年份最後
+date 031413052010 
+# 2010/03/14 13:05
+
+# date +'時間格式'，可以調整自己想要的時間格式
+date +'%Y-%m-%d %H:%M:%S:%N'
+```
+- who，顯示現在誰登入主機
+- whoami，顯示自己的帳號
+- head -n /etc/passwd，顯示前 n 行
+- tail -n /etc/passwd，顯示後 n 行
+- wc，可以計算 -l 行數、-w 字數，-c 字元
+```
+wc /etc/passwd # 顯示所有
+wc -l /etc/passwd
+wc -w /etc/passwd
+wc -c /etc/passwd
+```
+- ln，有硬連結(必須同一個磁區，刪除舊的，新的還可用)
+ln -s 軟連結(不限同一個磁區，刪除舊的，新的不能用)
+```
+ln /etc/passwd wd.lst
+ln -s wd.lst pa.lst
+
+# 修改其中一個，都會同步更改
+```
+- mkdir -p 目錄，不管目錄在第幾層，都會幫您建立好。
+- rm 刪除檔案。-f 強制不問就刪。-r 遞迴所有的子目錄子檔案。
+- find 位置 -name '*.txt'，找尋相關的檔案或檔名
+還可以找到比 /etc/passed 異動時間更新的
+```
+find /etc -cnewer /etc/passwd
+
+# 找出 24小時內修改的檔案
+find $HOME -mtime 0
+
+# 找出 10分鐘內修改的檔案，
+# -maxdepth 1，限制只有一層
+# -ls 確認時間
+find $HOME -maxdepth 1 -mmin -10 -ls
+```
+- tar 參數 打包檔名 哪些東西。將 哪些東西 打包成一包，之後還可以壓縮。
+```
+tar cvzf etc.tgz /etc
+# create 建立，view 顯示過程，zip 壓縮，filename 檔名，參數只有 f 一定要在最後。
+
+tar xvzf etc.tgz
+# extract 提取
+```
+- cp -a，完美複製原始檔案
+```
+# 備份目錄，html2/ 沒有先建立，cp -a 會自動建立
+cp -a html/ html2/
+
+# 已經有 html2/，要在html/ 後面加個點，表示全部
+cp -a html/. html2/
+```
+- 取得路徑 或 檔名
+```
+# 路徑
+dirname ~/Downloads/photo1.jpg
+# 顯示 /home/user/Downloads
+
+# 檔名
+basename ~/Downloads/photo1.jpg
+# 顯示 photo1.jpg
+```
+- sort 排序(由小到大，升冪)，-r (降冪，由大到小)
+```
+sort -n -k3 -t":" /etc/passwd
+# -n 使用數字排序
+# -k3，以第三欄為主
+# -t":"，欄位是用冒號分隔，很重要
+```
+- uniq，刪除重複列，但若是重複列沒有連續擺在一起，不會起任何作用。所以一定要事先排序。
+```
+sort data3 | uniq
+# 刪除重複列
+
+sort data3 | uniq -d
+# 找出重複列
+
+sort data3 | uniq -c
+# 計算重複列次數
+```
+- cut，取出每一行的某個字元 或 某一欄
+```
+# 取出第3-10的字元
+cut -c3-10 /etc/passwd
+
+# 取出第1欄，要先用 -d 定義 分隔符號
+cut -d: -f1 /etc/passwd
+
+# 取出第1、4欄
+cut -d: -f1,4 /etc/passwd
+```
+- paste，兩個檔案 列和列 合併，預設用 tab 分隔
+```
+paste data1 data2
+# 可以用在第一個檔案是帳號，第二個檔案是人名
+```
+- tr，針對字元最替換或刪除
+```
+tr 'root' 'ROOT' < /etc/passwd
+# 結果是，所有r變大寫，o、t也是，並不是只有root變成ROOT
+```
+- grep，找到符合的字串
+```
+grep 'ROOT' -i /etc/passwd
+# -i 表示不分大小寫
+
+# 可以搭配 -B10(before 10行) -A10(after 10行)
+grep 'ROOT' -i /etc/passwd -A10
+```
+- tee，可以顯示在畫面，又可以儲存到檔案
+```
+cut -d: -f1,4 /etc/passwd | tee user.lst
+```
+- diff，比較兩個檔案的差異
+```
+diff data1 data2
+```
+- 兩個命令用 && 的好處是，前一個正常執行，後面的才會執行。自動化都用，連切換目錄也會在最後面加上 &&
+- 小括號裡面執行命令，是會另外開啟 shell 執行。
+- 大括號裡面執行命令，是在本 shell 執行。左右兩邊要空格。
+- bash 游標的使用
+ctrl + a，可移到 列首
+ctrl + e，可移到 列尾
+ctrl + 左右鍵，可移動一個單字
+ctrl + r，可以搜尋之前執行過的命令。ctrl +r 下一個，ctrl + g 結束。
+
+- 大括號擴展
+```
+which {ec,bc}ho
+# 會找 echo、bcho
+```
+- 數學計算
+```
+echo $(( 3+5 ))
+```
+
+## 第六章 變數與字串操作
+- 變數規則，大小寫有差，第一個字母不可以是數字
+- 設定變數時，等號左右兩邊不能有空格
+```
+# 正確
+myname=Hello
+
+# 錯誤
+myname = Hello
+```
+- 讀取變數，前面加 $ 符號，或是將變數放在 ${} 裡面
+```
+echo $myname
+echo ${myname}
+```
+- 遇到字串要用雙引號(可以顯示變數) 或 單引號(純字串) 括起來
+```
+echo "My name is ${myname}."
+```
+- 撰寫 sh 時，變數名 建議要先設定過
+```
+#!/bin/bash
+shopt -s -o nounset
+# shopt -s 表示開啟選項
+# -o nounset 選項是 nounset ，要先建立變數名
+declare myname=Hi
+echo $myname
+```
+
+- 字串可以用 += 串接(左右不能有空格)
+```
+sayHi='Hello'
+sayHi+=', world'
+echo sayHi
+```
+- 陣列，使用小括號
+```
+arr=('abc' 'gld' 'lcm')
+
+# 顯示陣列全部，
+# @ 是一個一個顯示
+echo ${arr[@]}
+
+# * 是改成字串顯示
+echo ${arr[*]}
+
+# 預設是空格隔開每個陣列變數，IFS=, 可以變成逗號區隔
+arr1=$(IFS=,; echo "${arr[*]}")
+# 這邊兩個重點，
+# 第一個是，一定要用雙括號包起來
+# 第二個是，一定要用 [*] 顯示成字串，不能用 [@]
+# $() 是個簡易的 shell，可以簡易處理
+echo ${arr1[*]}
+```
+- 陣列的 *、@ 說明
+```
+# 假設有一個陣列：arr=("A B" "C" "D")，其中第一個元素包含空格。
+
+echo "${arr[@]}"
+# 會精準展開為 3 個獨立的參數："A B"、"C"、"D"。
+
+echo "${arr[*]}"
+# 會把全部元素合併變成一個字串："A B C D"。
+
+arr=("hello world" "foo" "bar")
+
+# 透過迴圈計算印出的參數個數 ($#)
+for x in "${arr[@]}"; do echo "arg: $x"; done 
+# 輸出 3 行（分別對應 3 個元素）
+
+for x in "${arr[*]}"; do echo "arg: $x"; done 
+# 輸出 1 行（整個陣列被當成字串 "hello world foo bar"）
+```
+
+- printf "格式" "字串或變數值"
+```
+HI="hello world"
+printf "\n %s \n" "$HI"
+# 連 \n 與 %s 之間的空格 也會呈現出來
+
+str=$(printf "%*s" 25 "$HI")
+# * 是字串寬度，後面給 25寬度
+
+str=${str// /-}
+# 將 空格改為 -，就會變成下面一行
+# ------------Hi,-hello,-is
+```
+- $() —— 指令替換（Command Substitution）
+```
+current_date=$(date +%Y-%m-%d)
+echo "今天是 $current_date"
+
+# 運作方式：系統會先執行 date +%Y-%m-%d，然後把印出來的日期字串（例如 2026-09-12）塞進變數中。
+
+# 註：它跟舊版的反引號 ` ` 效用完全相同，但 $() 支援巢狀包覆，閱讀性更好。
+```
+- ${} —— 變數替換與擴展（Parameter Expansion）
+```
+# 用途 A：避免變數名稱黏在一起（最常見）
+# 當變數後面緊接著其他英文字母時，不加大括號會讓 Bash 誤判變數名稱：
+prefix="log_"
+# ❌ 錯誤：Bash 會去尋找名為 $prefix_file 的變數，結果為空
+echo "$prefix_file.txt" 
+
+# ✅ 正確：用大括號精準指定變數範圍是 prefix
+echo "${prefix}file.txt" # 輸出 log_file.txt
+
+用途 B：強大的變數字串處理（進階）
+${} 內部還能做很多運算，例如計算長度、字串取代、切片或給予預設值：
+
+計算長度：${#my_var}
+
+取代字串：${my_var/old/new}，不會改變原始變數
+單斜線 ${my_var/old/new}：只會取代第一個符合的字串。
+
+雙斜線 ${my_var//old/new}：會取代所有符合的字串（全域取代 Global）。
+
+預設值：${my_var:-default_value}（若變數未設定則使用預設值）
+```
+- 取消變數，若沒有加 -v，則會刪除變數 以及 函式。
+```
+unset -v myname
+```
 
 
 
-
-
+## 第幾章
 
 - ex
 ```
